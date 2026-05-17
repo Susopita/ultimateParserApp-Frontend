@@ -6,6 +6,7 @@
 	import LR0TableViewer from '$lib/components/LR0TableViewer.svelte';
 	import LR0StepPlayer from '$lib/components/LR0StepPlayer.svelte';
 	import AutomatonViewer from '$lib/components/AutomatonViewer.svelte';
+	import AiAssistPanel from '$lib/components/AiAssistPanel.svelte';
 	import { ApiService } from '$lib/services/api';
 	import type { AnalyzeResponse, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse } from '$lib/types';
 
@@ -35,6 +36,7 @@
 	let rdResult = $state<ParseResponse | null>(null);
 	let isParsingRd = $state(false);
 	let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
+	let errorContext = $state<{ message: string; inputString: string; parserType: string } | null>(null);
 
 	const isLoading = $derived(
 		isAnalyzing || isParsing || isParsingRd || isParsingLR0 || isParsingSlr1 || isParsingLr1 || isParsingLalr1
@@ -72,8 +74,10 @@
 		analyzeResult = data;
 
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast(`Analysis Complete: ${data.production_count} rules found.`, 'success');
 		} else {
+			errorContext = { message: data.message || 'Syntax Error in Grammar', inputString: '', parserType: 'Grammar Analysis' };
 			showToast(data.message || 'Syntax Error in Grammar', 'error');
 		}
 		isAnalyzing = false;
@@ -93,8 +97,10 @@
 		parseResult = data;
 
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('LL(1) Simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'Parsing error.', inputString: testInput, parserType: 'LL(1)' };
 			showToast(data.message || 'Parsing error.', 'error');
 		}
 		isParsing = false;
@@ -114,8 +120,10 @@
 		lr0Result = data;
 
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('LR(0) Simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'LR(0) parsing error.', inputString: lr0TestInput, parserType: 'LR(0)' };
 			showToast(data.message || 'LR(0) parsing error.', 'error');
 		}
 		isParsingLR0 = false;
@@ -133,8 +141,10 @@
 		const data = await ApiService.parseSLR1(grammar, slr1TestInput);
 		slr1Result = data;
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('SLR(1) Simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'SLR(1) parsing error.', inputString: slr1TestInput, parserType: 'SLR(1)' };
 			showToast(data.message || 'SLR(1) parsing error.', 'error');
 		}
 		isParsingSlr1 = false;
@@ -152,8 +162,10 @@
 		const data = await ApiService.parseLR1(grammar, lr1TestInput);
 		lr1Result = data;
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('LR(1) Simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'LR(1) parsing error.', inputString: lr1TestInput, parserType: 'LR(1)' };
 			showToast(data.message || 'LR(1) parsing error.', 'error');
 		}
 		isParsingLr1 = false;
@@ -168,8 +180,10 @@
 		const data = await ApiService.parseRD(grammar, rdTestInput);
 		rdResult = data;
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('Recursive Descent simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'Recursive Descent parsing error.', inputString: rdTestInput, parserType: 'Recursive Descent' };
 			showToast(data.message || 'Recursive Descent parsing error.', 'error');
 		}
 		isParsingRd = false;
@@ -184,8 +198,10 @@
 		const data = await ApiService.parseLALR1(grammar, lalr1TestInput);
 		lalr1Result = data;
 		if (data.status === 'success') {
+			errorContext = null;
 			showToast('LALR(1) Simulation ready!', 'success');
 		} else {
+			errorContext = { message: data.message || 'LALR(1) parsing error.', inputString: lalr1TestInput, parserType: 'LALR(1)' };
 			showToast(data.message || 'LALR(1) parsing error.', 'error');
 		}
 		isParsingLalr1 = false;
@@ -304,6 +320,10 @@
 							<p class="text-2xl font-black text-white">{symbolLabel(analyzeResult!.start_symbol)}</p>
 						</div>
 					</div>
+				{/if}
+
+				{#if grammarReady}
+					<AiAssistPanel {grammar} {errorContext} />
 				{/if}
 
 				<VirtualKeyboard onInsert={handleInsert} />

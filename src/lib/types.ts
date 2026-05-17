@@ -100,3 +100,23 @@ export type LR1ParseResponse = LR0ParseResponse;
 // LALR(1) response has identical structure to LR(0)
 export type LALR1ParseResponse = LR0ParseResponse;
 
+// ─── AI Assist Types ─────────────────────────────────────────────────
+
+export type AiRequestType = 'explain_error' | 'fix_ambiguity' | 'suggest_ll1_transform';
+
+export interface AiAssistRequest {
+  grammar: string;
+  request_type: AiRequestType;
+  error_message?: string;
+  input_string?: string;
+  parser_type?: string;
+}
+
+export interface AiAssistResponse {
+  status: 'success' | 'error';
+  explanation?: string;
+  suggestions?: string[];
+  transformed_grammar?: string;
+  message?: string;
+}
+
