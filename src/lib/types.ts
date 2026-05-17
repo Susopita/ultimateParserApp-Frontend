@@ -93,3 +93,7 @@ export interface LR0ParseResponse {
   snapshots?: LR0ParseSnapshot[];
 }
 
+// ─── SLR(1) Types ────────────────────────────────────────────────────
+// SLR(1) response has identical structure to LR(0)
+export type SLR1ParseResponse = LR0ParseResponse;
+
