@@ -5,13 +5,14 @@
 	 * Displays separate state stack and symbol stack.
 	 */
 	import type { LR0ParseSnapshot } from '$lib/types';
-	import { onDestroy } from 'svelte';
 
 	let { snapshots = [] } = $props<{ snapshots: LR0ParseSnapshot[] }>();
 
 	let currentIndex = $state(0);
 	let isPlaying = $state(false);
 	let interval: ReturnType<typeof setInterval>;
+
+	$effect(() => () => clearInterval(interval));
 
 	const current = $derived(snapshots[currentIndex] || null);
 	const progress = $derived(snapshots.length > 0 ? ((currentIndex + 1) / snapshots.length) * 100 : 0);
@@ -51,7 +52,6 @@
 		if (currentIndex > 0) currentIndex--;
 	}
 
-	onDestroy(() => clearInterval(interval));
 </script>
 
 <div class="animate-fade-in space-y-6">
@@ -60,6 +60,7 @@
 		<div class="flex items-center gap-4">
 			<button
 				class="h-10 w-10 flex items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-amber-400 hover:border-amber-400/50 transition-all active:scale-90"
+				aria-label="Previous step"
 				onclick={prev}
 				disabled={currentIndex === 0}
 			>
@@ -79,6 +80,7 @@
 
 			<button
 				class="h-10 w-10 flex items-center justify-center rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-amber-400 hover:border-amber-400/50 transition-all active:scale-90"
+				aria-label="Next step"
 				onclick={next}
 				disabled={currentIndex === snapshots.length - 1}
 			>

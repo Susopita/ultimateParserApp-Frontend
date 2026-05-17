@@ -58,7 +58,3 @@
 		{/each}
 	</div>
 </div>
-
-<style>
-	/* Any extra specific styles if needed */
-</style>

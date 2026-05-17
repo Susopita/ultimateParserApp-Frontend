@@ -7,7 +7,7 @@
 
 	const nonTerminals = $derived(Object.keys(table).sort());
 	const terminals = $derived(
-		[...new Set(Object.values(table).flatMap((row) => Object.keys(row)))].sort((a, b) => {
+		[...new Set((Object.values(table) as Record<string, string>[]).flatMap((row) => Object.keys(row)))].sort((a, b) => {
 			if (a === '$') return 1;
 			if (b === '$') return -1;
 			return a.localeCompare(b);

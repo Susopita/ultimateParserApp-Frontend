@@ -50,11 +50,6 @@ export interface ParseResponse {
   parsing_table?: Record<string, Record<string, string>>;
 }
 
-export interface AutomatonJSON {
-  nodes: { id: string; label: string; isFinal: boolean }[];
-  links: { source: string; target: string; label: string }[];
-}
-
 // ─── LR(0) Types ────────────────────────────────────────────────────
 
 export interface LR0ParseSnapshot {
@@ -96,4 +91,12 @@ export interface LR0ParseResponse {
 // ─── SLR(1) Types ────────────────────────────────────────────────────
 // SLR(1) response has identical structure to LR(0)
 export type SLR1ParseResponse = LR0ParseResponse;
+
+// ─── LR(1) Types ─────────────────────────────────────────────────────
+// LR(1) response has identical structure to LR(0)
+export type LR1ParseResponse = LR0ParseResponse;
+
+// ─── LALR(1) Types ───────────────────────────────────────────────────
+// LALR(1) response has identical structure to LR(0)
+export type LALR1ParseResponse = LR0ParseResponse;
 
