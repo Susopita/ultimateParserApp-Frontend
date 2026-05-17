@@ -1,4 +1,4 @@
-import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse } from '../types';
+import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse } from '../types';
 
 const BASE_URL = 'http://127.0.0.1:3000';
 
@@ -22,6 +22,26 @@ export const ApiService = {
 				body: JSON.stringify(payload)
 			});
 
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate Recursive Descent parsing.
+	 */
+	async parseRD(grammar: string, input: string): Promise<ParseResponse> {
+		const payload: ParseRequest = { raw_grammar: grammar, input_string: input };
+		try {
+			const response = await fetch(`${BASE_URL}/parse-rd`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
 			return await response.json();
 		} catch (error) {
 			return {
@@ -56,5 +76,93 @@ export const ApiService = {
 				message: error instanceof Error ? error.message : 'Unknown connection error'
 			};
 		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate LR(0) parsing.
+	 */
+	async parseLR0(grammar: string, input: string): Promise<LR0ParseResponse> {
+		const payload: ParseRequest = {
+			raw_grammar: grammar,
+			input_string: input
+		};
+
+		try {
+			const response = await fetch(`${BASE_URL}/parse-lr0`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate SLR(1) parsing.
+	 */
+	async parseSLR1(grammar: string, input: string): Promise<SLR1ParseResponse> {
+		const payload: ParseRequest = { raw_grammar: grammar, input_string: input };
+		try {
+			const response = await fetch(`${BASE_URL}/parse-slr1`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate LR(1) parsing.
+	 */
+	async parseLR1(grammar: string, input: string): Promise<LR1ParseResponse> {
+		const payload: ParseRequest = { raw_grammar: grammar, input_string: input };
+		try {
+			const response = await fetch(`${BASE_URL}/parse-lr1`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate LALR(1) parsing.
+	 */
+	async parseLALR1(grammar: string, input: string): Promise<LALR1ParseResponse> {
+		const payload: ParseRequest = { raw_grammar: grammar, input_string: input };
+		try {
+			const response = await fetch(`${BASE_URL}/parse-lalr1`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
 	}
 };
+

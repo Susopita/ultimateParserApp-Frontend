@@ -1,11 +1,12 @@
 <script lang="ts">
 	/**
-	 * StepPlayer.svelte
-	 * Interactive player for parsing simulation steps.
+	 * LR0StepPlayer.svelte
+	 * Interactive player for LR(0) parsing simulation steps.
+	 * Displays separate state stack and symbol stack.
 	 */
-	import type { ParseSnapshot } from '$lib/types';
+	import type { LR0ParseSnapshot } from '$lib/types';
 
-	let { snapshots = [] } = $props<{ snapshots: ParseSnapshot[] }>();
+	let { snapshots = [] } = $props<{ snapshots: LR0ParseSnapshot[] }>();
 
 	let currentIndex = $state(0);
 	let isPlaying = $state(false);
@@ -33,7 +34,7 @@
 			} else {
 				pause();
 			}
-		}, 800);
+		}, 1000);
 	}
 
 	function pause() {
@@ -98,28 +99,63 @@
 	{#if current}
 		<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 			<!-- Stack Panel -->
-			<div class="md:col-span-3 space-y-3">
-				<h4 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Stack</h4>
-				<div class="glass-card min-h-[300px] flex flex-col-reverse justify-start gap-2 bg-slate-900/30">
-					{#each current.stack as sym, i}
-						<div 
-							class="p-3 rounded-lg border text-center font-mono text-sm transition-all duration-300
-							{i === current.stack.length - 1 ? 'bg-amber-400/20 border-amber-400/50 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.1)]' : 'bg-slate-800/50 border-slate-700 text-slate-400'}"
+			<div class="md:col-span-4 space-y-3">
+				<h4 class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Parser Stack</h4>
+				<div class="glass-card min-h-[300px] flex flex-col-reverse justify-start gap-1.5 bg-slate-900/30">
+					<!-- Interleave state and symbol stacks: s0 X s1 Y s2 -->
+					{#each current.state_stack as state, i}
+						{@const isTop = i === current.state_stack.length - 1}
+						{@const symbol = current.symbol_stack[i - 1]}
+						
+						<!-- Show the state -->
+						<div
+							class="p-2 rounded-lg border text-center font-mono text-xs transition-all duration-300
+							{isTop 
+								? 'bg-cyan-400/20 border-cyan-400/50 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.1)]' 
+								: 'bg-slate-800/30 border-slate-700/50 text-slate-500'}"
 						>
-							{sym.value || (sym.type === 'Epsilon' ? 'ϵ' : '$')}
-							{#if i === current.stack.length - 1}
-								<span class="block text-[8px] mt-1 font-bold">TOP</span>
+							s{state}
+							{#if isTop}
+								<span class="block text-[8px] mt-0.5 font-bold">TOP</span>
 							{/if}
 						</div>
+						
+						<!-- Show the symbol below the state (if exists) -->
+						{#if symbol !== undefined}
+							<div
+								class="p-2.5 rounded-lg border text-center font-mono text-sm transition-all duration-300
+								bg-amber-400/10 border-amber-400/30 text-amber-400"
+							>
+								{symbol}
+							</div>
+						{/if}
 					{/each}
 				</div>
 			</div>
 
 			<!-- Visual Simulation Area -->
-			<div class="md:col-span-9 space-y-6">
+			<div class="md:col-span-8 space-y-6">
 				<!-- Action Card -->
-				<div class="glass-card bg-amber-400/5 border-amber-400/20 !p-8 flex flex-col items-center justify-center text-center space-y-4">
-					<span class="px-3 py-1 rounded-full bg-amber-400/10 text-[10px] font-bold text-amber-400 border border-amber-400/20">CURRENT ACTION</span>
+				<div class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-4
+					{current.action.includes('Accept') 
+						? 'bg-green-400/5 border-green-400/20' 
+						: current.action.includes('Shift') 
+							? 'bg-cyan-400/5 border-cyan-400/20' 
+							: current.action.includes('Reduce') 
+								? 'bg-amber-400/5 border-amber-400/20' 
+								: 'bg-red-400/5 border-red-400/20'}"
+				>
+					<span class="px-3 py-1 rounded-full text-[10px] font-bold border
+						{current.action.includes('Accept') 
+							? 'bg-green-400/10 text-green-400 border-green-400/20' 
+							: current.action.includes('Shift') 
+								? 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20' 
+								: current.action.includes('Reduce') 
+									? 'bg-amber-400/10 text-amber-400 border-amber-400/20' 
+									: 'bg-red-400/10 text-red-400 border-red-400/20'}"
+					>
+						CURRENT ACTION
+					</span>
 					<h2 class="text-2xl font-black text-white tracking-tight leading-tight">
 						{current.action}
 					</h2>
@@ -140,6 +176,23 @@
 						{#if current.input_remaining.length === 0}
 							<span class="text-slate-600 italic">Input consumed.</span>
 						{/if}
+					</div>
+				</div>
+
+				<!-- State + Symbol Info -->
+				<div class="glass-card space-y-4 bg-slate-900/30">
+					<h4 class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Stack Detail</h4>
+					<div class="flex flex-wrap gap-2 items-center font-mono text-sm">
+						{#each current.state_stack as state, i}
+							<span class="px-2 py-1 rounded bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 text-xs">
+								s{state}
+							</span>
+							{#if current.symbol_stack[i]}
+								<span class="px-2 py-1 rounded bg-amber-400/10 border border-amber-400/30 text-amber-400 text-xs">
+									{current.symbol_stack[i]}
+								</span>
+							{/if}
+						{/each}
 					</div>
 				</div>
 			</div>
