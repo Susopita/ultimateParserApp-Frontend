@@ -1,4 +1,4 @@
-import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse } from '../types';
+import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse, AiAssistRequest, AiAssistResponse } from '../types';
 
 const BASE_URL = 'http://127.0.0.1:3000';
 
@@ -155,6 +155,25 @@ export const ApiService = {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
+			});
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
+	},
+
+	/**
+	 * Sends a grammar and AI request type to get AI-powered explanations and suggestions.
+	 */
+	async askAI(request: AiAssistRequest): Promise<AiAssistResponse> {
+		try {
+			const response = await fetch(`${BASE_URL}/ai-assist`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(request)
 			});
 			return await response.json();
 		} catch (error) {
