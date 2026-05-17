@@ -1,4 +1,4 @@
-import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse } from '../types';
+import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse, LR0ParseResponse } from '../types';
 
 const BASE_URL = 'http://127.0.0.1:3000';
 
@@ -56,5 +56,33 @@ export const ApiService = {
 				message: error instanceof Error ? error.message : 'Unknown connection error'
 			};
 		}
+	},
+
+	/**
+	 * Sends grammar and input string to simulate LR(0) parsing.
+	 */
+	async parseLR0(grammar: string, input: string): Promise<LR0ParseResponse> {
+		const payload: ParseRequest = {
+			raw_grammar: grammar,
+			input_string: input
+		};
+
+		try {
+			const response = await fetch(`${BASE_URL}/parse-lr0`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			return await response.json();
+		} catch (error) {
+			return {
+				status: 'error',
+				message: error instanceof Error ? error.message : 'Unknown connection error'
+			};
+		}
 	}
 };
+

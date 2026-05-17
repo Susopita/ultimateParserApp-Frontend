@@ -3,19 +3,25 @@
 	import GrammarViewer from '$lib/components/GrammarViewer.svelte';
 	import TableViewer from '$lib/components/TableViewer.svelte';
 	import StepPlayer from '$lib/components/StepPlayer.svelte';
+	import LR0TableViewer from '$lib/components/LR0TableViewer.svelte';
+	import LR0StepPlayer from '$lib/components/LR0StepPlayer.svelte';
+	import AutomatonViewer from '$lib/components/AutomatonViewer.svelte';
 	import { ApiService } from '$lib/services/api';
-	import type { AnalyzeResponse, ParseResponse } from '$lib/types';
+	import type { AnalyzeResponse, ParseResponse, LR0ParseResponse } from '$lib/types';
 
 	// State using Runes
 	let grammar = $state('S → A B\nA → a | ϵ\nB → b');
 	let testInput = $state('a b');
+	let lr0TestInput = $state('a b');
 	let textarea: HTMLTextAreaElement;
 
 	// Analysis State
 	let analyzeResult = $state<AnalyzeResponse | null>(null);
 	let parseResult = $state<ParseResponse | null>(null);
+	let lr0Result = $state<LR0ParseResponse | null>(null);
 	let isAnalyzing = $state(false);
 	let isParsing = $state(false);
+	let isParsingLR0 = $state(false);
 	let toast = $state<{ msg: string; type: 'success' | 'error' } | null>(null);
 
 	/**
@@ -76,6 +82,27 @@
 		isParsing = false;
 	}
 
+	/**
+	 * Simulates LR(0) parsing for a given input
+	 */
+	async function simulateLR0() {
+		if (!grammar || !lr0TestInput) {
+			showToast('Please provide both grammar and input string.', 'error');
+			return;
+		}
+
+		isParsingLR0 = true;
+		const data = await ApiService.parseLR0(grammar, lr0TestInput);
+		lr0Result = data;
+
+		if (data.status === 'success') {
+			showToast('LR(0) Simulation ready!', 'success');
+		} else {
+			showToast(data.message || 'LR(0) parsing error.', 'error');
+		}
+		isParsingLR0 = false;
+	}
+
 	function showToast(msg: string, type: 'success' | 'error') {
 		toast = { msg, type };
 		setTimeout(() => {
@@ -85,7 +112,7 @@
 </script>
 
 <svelte:head>
-	<title>Ultimate Parser | LL(1) Analysis</title>
+	<title>Ultimate Parser | LL(1) & LR(0) Analysis</title>
 </svelte:head>
 
 <main class="min-h-screen bg-[#0f172a] p-6 lg:p-12 relative overflow-hidden">
@@ -106,13 +133,13 @@
 					</h1>
 				</div>
 				<p class="text-slate-400 max-w-2xl text-lg">
-					Analyze context-free grammars and visualize LL(1) parsing step-by-step.
+					Analyze context-free grammars and visualize LL(1) & LR(0) parsing step-by-step.
 				</p>
 			</div>
 
 			<div class="flex items-center gap-3 text-xs font-mono text-slate-500 bg-slate-900/50 px-5 py-2.5 rounded-full border border-slate-700/50 backdrop-blur-sm">
-				<span class="h-2 w-2 rounded-full {isAnalyzing || isParsing ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}"></span>
-				{isAnalyzing || isParsing ? 'Processing...' : 'Backend Active'}
+				<span class="h-2 w-2 rounded-full {isAnalyzing || isParsing || isParsingLR0 ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}"></span>
+				{isAnalyzing || isParsing || isParsingLR0 ? 'Processing...' : 'Backend Active'}
 			</div>
 		</header>
 
@@ -193,7 +220,7 @@
 					<div class="space-y-4">
 						<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800">
 							<span class="text-amber-400 font-mono text-sm font-bold block mb-1">Terminals</span>
-							<p class="text-xs text-slate-500">Represented by lowercase letters or symbols like <code class="text-slate-300">+</code>, <code class="text-slate-300">*</code>.</p>
+							<p class="text-xs text-slate-500">Represented by lowercase letters or symbols like <code class="text-slate-300">+</code>, <code class="text-slate-300">-</code>, <code class="text-slate-300">*</code>, <code class="text-slate-300">/</code>, <code class="text-slate-300">^</code>.</p>
 						</div>
 						<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800">
 							<span class="text-amber-400 font-mono text-sm font-bold block mb-1">Non-Terminals</span>
@@ -256,6 +283,74 @@
 							</div>
 							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">Parsing Failed</h3>
 							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{parseResult.message}</p>
+						</div>
+					{/if}
+				{/if}
+			</section>
+		{/if}
+
+		<!-- ═══════════════════ LR(0) Simulation Section ═══════════════════ -->
+		{#if analyzeResult && analyzeResult.status === 'success'}
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+				<div class="max-w-3xl space-y-4">
+					<h2 class="text-3xl font-black text-white">LR(0) Parsing <span class="text-cyan-400">Simulation</span></h2>
+					<p class="text-slate-400">Build the canonical LR(0) automaton, ACTION/GOTO tables, and simulate bottom-up parsing step-by-step.</p>
+				</div>
+
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+					<div class="relative w-full">
+						<input 
+							type="text" 
+							bind:value={lr0TestInput} 
+							placeholder="Enter tokens separated by space (e.g., a b)"
+							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 transition-all font-mono"
+						/>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+					</div>
+					<button 
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-cyan-400 active:scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+						onclick={simulateLR0}
+						disabled={isParsingLR0}
+					>
+						{#if isParsingLR0}
+							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+						{/if}
+						Run LR(0)
+					</button>
+				</div>
+
+				{#if lr0Result}
+					{#if lr0Result.automaton}
+						<AutomatonViewer automaton={lr0Result.automaton} />
+					{/if}
+
+					{#if lr0Result.status === 'success'}
+						<div class="grid grid-cols-1 gap-12">
+							<LR0TableViewer 
+								action_table={lr0Result.action_table || {}} 
+								goto_table={lr0Result.goto_table || {}}
+								terminals={lr0Result.terminals || []}
+								non_terminals={lr0Result.non_terminals || []}
+								stateCount={lr0Result.automaton?.states.length || 0}
+							/>
+							
+							<div class="space-y-6">
+								<div class="flex items-center gap-3">
+									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">LR(0) Parser Execution</h3>
+									<div class="h-px grow bg-slate-800"></div>
+								</div>
+								<LR0StepPlayer snapshots={lr0Result.snapshots || []} />
+							</div>
+						</div>
+					{:else}
+						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
+							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+							</div>
+							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">LR(0) Parsing Failed</h3>
+							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{lr0Result.message}</p>
 						</div>
 					{/if}
 				{/if}
