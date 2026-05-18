@@ -1,6 +1,7 @@
 import type { AnalyzeRequest, AnalyzeResponse, ParseRequest, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse, AiAssistRequest, AiAssistResponse } from '../types';
 
-const BASE_URL = 'http://127.0.0.1:3000';
+// Fallback to localhost if the environment variable is not defined
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
 
 /**
  * ApiService
