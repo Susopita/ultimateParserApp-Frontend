@@ -2,50 +2,124 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* ─── Color tokens ──────────────────────────────────────────────── */
+
+:root {
+  /* Light theme (default) */
+  --bg-page:      #f1f5f9;
+  --bg-card:      rgba(255, 255, 255, 0.85);
+  --bg-card-solid:#ffffff;
+  --bg-elevated:  #e2e8f0;
+  --bg-input:     #ffffff;
+  --text-1:       #0f172a;
+  --text-2:       #1e293b;
+  --text-3:       #334155;
+  --text-4:       #475569;
+  --border:       rgba(148, 163, 184, 0.35);
+  --border-strong:#cbd5e1;
+  --glow-1:       rgba(251, 191, 36, 0.08);
+  --glow-2:       rgba(59, 130, 246, 0.06);
+  --selection-bg: #fbbf24;
+  --selection-fg: #0f172a;
+}
+
+.dark {
+  --bg-page:      #0f172a;
+  --bg-card:      rgba(30, 41, 59, 0.5);
+  --bg-card-solid:#1e293b;
+  --bg-elevated:  #1e293b;
+  --bg-input:     #0f172a;
+  --text-1:       #f8fafc;
+  --text-2:       #e2e8f0;
+  --text-3:       #94a3b8;
+  --text-4:       #64748b;
+  --border:       rgba(51, 65, 85, 0.5);
+  --border-strong:#334155;
+  --glow-1:       rgba(251, 191, 36, 0.05);
+  --glow-2:       rgba(59, 130, 246, 0.05);
+  --selection-bg: #fbbf24;
+  --selection-fg: #0f172a;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────── */
+
 @layer base {
-  :root {
-    --primary: 251 191 36; /* #FBBF24 */
-    --primary-foreground: 15 23 42; /* Dark slate */
-    --background: 15 23 42;
-    --foreground: 248 250 252;
-    --card: 30 41 59;
-    --card-foreground: 248 250 252;
-    --border: 51 65 85;
-    --accent: 251 191 36;
+  html {
+    background-color: var(--bg-page);
+    color: var(--text-1);
+    transition: background-color 0.2s, color 0.2s;
   }
 
   body {
-    @apply bg-[#0f172a] text-slate-50 antialiased selection:bg-amber-400 selection:text-slate-900;
-    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-1);
+    @apply antialiased font-[Inter,system-ui,sans-serif];
+    ::selection {
+      background-color: var(--selection-bg);
+      color: var(--selection-fg);
+    }
+  }
+
+  input, textarea {
+    background-color: var(--bg-input);
+    color: var(--text-1);
+    border-color: var(--border-strong);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
   }
 }
 
+/* ─── Components ────────────────────────────────────────────────── */
+
 @layer components {
   .glass {
-    @apply bg-slate-800/40 backdrop-blur-md border border-slate-700/50 shadow-xl;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    @apply backdrop-blur-md shadow-xl;
   }
 
   .glass-card {
-    @apply glass rounded-2xl p-6 transition-all duration-300 hover:border-amber-400/30;
+    @apply glass rounded-2xl p-6 transition-all duration-300;
+    &:hover {
+      border-color: rgba(251, 191, 36, 0.3);
+    }
   }
 
   .btn-primary {
-    @apply px-4 py-2 bg-amber-400 text-slate-900 font-bold rounded-lg 
+    @apply px-4 py-2 bg-amber-400 text-slate-900 font-bold rounded-lg
            transition-all duration-200 hover:bg-amber-300 active:scale-95
            shadow-[0_0_15px_rgba(251,191,36,0.3)];
   }
 
   .btn-ghost {
-    @apply px-4 py-2 text-slate-300 hover:text-amber-400 hover:bg-white/5 
+    color: var(--text-3);
+    @apply px-4 py-2 hover:text-amber-400 hover:bg-white/5
            rounded-lg transition-all duration-200;
   }
 
+  /* Semantic surface helpers */
+  .surface {
+    background-color: var(--bg-card);
+    color: var(--text-1);
+    border-color: var(--border);
+  }
+
+  .text-base-1   { color: var(--text-1); }
+  .text-base-2   { color: var(--text-2); }
+  .text-base-3   { color: var(--text-3); }
+  .text-base-4   { color: var(--text-4); }
+  .border-base   { border-color: var(--border); }
+  .border-strong { border-color: var(--border-strong); }
+  .bg-base       { background-color: var(--bg-page); }
+  .bg-card       { background-color: var(--bg-card); }
+  .bg-elevated   { background-color: var(--bg-elevated); }
+  .bg-input-var  { background-color: var(--bg-input); }
 }
 
-/* Custom animations */
+/* ─── Animations ─────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {

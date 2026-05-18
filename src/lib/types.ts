@@ -48,6 +48,10 @@ export interface ParseResponse {
   message?: string;
   snapshots?: ParseSnapshot[];
   parsing_table?: Record<string, Record<string, string>>;
+  parse_tree?: ParseTreeNode;
+  ast?: ParseTreeNode;
+  parse_tree_dot?: string;
+  ast_dot?: string;
 }
 
 // ─── LR(0) Types ────────────────────────────────────────────────────
@@ -86,6 +90,10 @@ export interface LR0ParseResponse {
   terminals?: string[];
   non_terminals?: string[];
   snapshots?: LR0ParseSnapshot[];
+  parse_tree?: ParseTreeNode;
+  ast?: ParseTreeNode;
+  parse_tree_dot?: string;
+  ast_dot?: string;
 }
 
 // ─── SLR(1) Types ────────────────────────────────────────────────────
@@ -99,6 +107,15 @@ export type LR1ParseResponse = LR0ParseResponse;
 // ─── LALR(1) Types ───────────────────────────────────────────────────
 // LALR(1) response has identical structure to LR(0)
 export type LALR1ParseResponse = LR0ParseResponse;
+
+// ─── Parse Tree / AST Types ──────────────────────────────────────────
+
+export interface ParseTreeNode {
+  id: number;
+  label: string;
+  node_type: 'terminal' | 'non_terminal' | 'epsilon';
+  children: ParseTreeNode[];
+}
 
 // ─── AI Assist Types ─────────────────────────────────────────────────
 
