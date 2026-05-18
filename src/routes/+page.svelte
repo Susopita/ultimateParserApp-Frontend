@@ -7,8 +7,14 @@
 	import LR0StepPlayer from '$lib/components/LR0StepPlayer.svelte';
 	import AutomatonViewer from '$lib/components/AutomatonViewer.svelte';
 	import AiAssistPanel from '$lib/components/AiAssistPanel.svelte';
+	import GraphvizViewer from '$lib/components/GraphvizViewer.svelte';
 	import { ApiService } from '$lib/services/api';
+	import { exportTablesPDF } from '$lib/utils/pdf';
+	import type { TableSpec } from '$lib/utils/pdf';
 	import type { AnalyzeResponse, ParseResponse, LR0ParseResponse, SLR1ParseResponse, LR1ParseResponse, LALR1ParseResponse } from '$lib/types';
+	import { theme } from '$lib/stores/theme.svelte';
+	import { i18n } from '$lib/stores/i18n.svelte';
+	const t = (key: string, vars?: Record<string, string | number>) => i18n.t(key, vars);
 
 	// State using Runes
 	let grammar = $state('S → A B\nA → a | ϵ\nB → b');
@@ -44,20 +50,13 @@
 	const grammarReady = $derived(analyzeResult?.status === 'success');
 	const grammarReadyNoLeftRec = $derived(analyzeResult?.status === 'success' && !analyzeResult.has_left_recursion);
 
-	/**
-	 * Inserts a symbol at the current cursor position in the textarea
-	 */
 	function handleInsert(symbol: string) {
 		if (!textarea) return;
-
 		const start = textarea.selectionStart;
 		const end = textarea.selectionEnd;
 		const before = grammar.substring(0, start);
 		const after = grammar.substring(end);
-
 		grammar = before + symbol + after;
-
-		// Restoration of focus and cursor position
 		setTimeout(() => {
 			textarea.focus();
 			const newPos = start + symbol.length;
@@ -65,144 +64,106 @@
 		}, 0);
 	}
 
-	/**
-	 * Analyzes the grammar structure
-	 */
 	async function analyzeGrammar() {
 		isAnalyzing = true;
 		const data = await ApiService.analyze(grammar);
 		analyzeResult = data;
-
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast(`Analysis Complete: ${data.production_count} rules found.`, 'success');
+			showToast(t('toast.analyze_ok', { n: data.production_count ?? 0 }), 'success');
 		} else {
-			errorContext = { message: data.message || 'Syntax Error in Grammar', inputString: '', parserType: 'Grammar Analysis' };
-			showToast(data.message || 'Syntax Error in Grammar', 'error');
+			errorContext = { message: data.message || t('toast.grammar_err'), inputString: '', parserType: 'Grammar Analysis' };
+			showToast(data.message || t('toast.grammar_err'), 'error');
 		}
 		isAnalyzing = false;
 	}
 
-	/**
-	 * Simulates LL(1) parsing for a given input
-	 */
 	async function simulateLL1() {
-		if (!grammar || !testInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
-
+		if (!grammar || !testInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsing = true;
 		const data = await ApiService.parseLL1(grammar, testInput);
 		parseResult = data;
-
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('LL(1) Simulation ready!', 'success');
+			showToast(t('ll1_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'Parsing error.', inputString: testInput, parserType: 'LL(1)' };
-			showToast(data.message || 'Parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: testInput, parserType: 'LL(1)' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsing = false;
 	}
 
-	/**
-	 * Simulates LR(0) parsing for a given input
-	 */
 	async function simulateLR0() {
-		if (!grammar || !lr0TestInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
-
+		if (!grammar || !lr0TestInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsingLR0 = true;
 		const data = await ApiService.parseLR0(grammar, lr0TestInput);
 		lr0Result = data;
-
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('LR(0) Simulation ready!', 'success');
+			showToast(t('toast.lr0_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'LR(0) parsing error.', inputString: lr0TestInput, parserType: 'LR(0)' };
-			showToast(data.message || 'LR(0) parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: lr0TestInput, parserType: 'LR(0)' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsingLR0 = false;
 	}
 
-	/**
-	 * Simulates SLR(1) parsing for a given input
-	 */
 	async function simulateSLR1() {
-		if (!grammar || !slr1TestInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
+		if (!grammar || !slr1TestInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsingSlr1 = true;
 		const data = await ApiService.parseSLR1(grammar, slr1TestInput);
 		slr1Result = data;
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('SLR(1) Simulation ready!', 'success');
+			showToast(t('toast.slr1_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'SLR(1) parsing error.', inputString: slr1TestInput, parserType: 'SLR(1)' };
-			showToast(data.message || 'SLR(1) parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: slr1TestInput, parserType: 'SLR(1)' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsingSlr1 = false;
 	}
 
-	/**
-	 * Simulates LR(1) parsing for a given input
-	 */
 	async function simulateLR1() {
-		if (!grammar || !lr1TestInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
+		if (!grammar || !lr1TestInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsingLr1 = true;
 		const data = await ApiService.parseLR1(grammar, lr1TestInput);
 		lr1Result = data;
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('LR(1) Simulation ready!', 'success');
+			showToast(t('toast.lr1_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'LR(1) parsing error.', inputString: lr1TestInput, parserType: 'LR(1)' };
-			showToast(data.message || 'LR(1) parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: lr1TestInput, parserType: 'LR(1)' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsingLr1 = false;
 	}
 
 	async function simulateRD() {
-		if (!grammar || !rdTestInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
+		if (!grammar || !rdTestInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsingRd = true;
 		const data = await ApiService.parseRD(grammar, rdTestInput);
 		rdResult = data;
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('Recursive Descent simulation ready!', 'success');
+			showToast(t('toast.rd_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'Recursive Descent parsing error.', inputString: rdTestInput, parserType: 'Recursive Descent' };
-			showToast(data.message || 'Recursive Descent parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: rdTestInput, parserType: 'Recursive Descent' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsingRd = false;
 	}
 
 	async function simulateLALR1() {
-		if (!grammar || !lalr1TestInput) {
-			showToast('Please provide both grammar and input string.', 'error');
-			return;
-		}
+		if (!grammar || !lalr1TestInput) { showToast(t('toast.missing'), 'error'); return; }
 		isParsingLalr1 = true;
 		const data = await ApiService.parseLALR1(grammar, lalr1TestInput);
 		lalr1Result = data;
 		if (data.status === 'success') {
 			errorContext = null;
-			showToast('LALR(1) Simulation ready!', 'success');
+			showToast(t('toast.lalr1_ok'), 'success');
 		} else {
-			errorContext = { message: data.message || 'LALR(1) parsing error.', inputString: lalr1TestInput, parserType: 'LALR(1)' };
-			showToast(data.message || 'LALR(1) parsing error.', 'error');
+			errorContext = { message: data.message || t('toast.parse_err'), inputString: lalr1TestInput, parserType: 'LALR(1)' };
+			showToast(data.message || t('toast.parse_err'), 'error');
 		}
 		isParsingLalr1 = false;
 	}
@@ -214,71 +175,149 @@
 
 	function showToast(msg: string, type: 'success' | 'error') {
 		toast = { msg, type };
-		setTimeout(() => {
-			toast = null;
-		}, 4000);
+		setTimeout(() => { toast = null; }, 4000);
 	}
+
+	// ─── PDF export ────────────────────────────────────────────────────
+
+	const availableTables = $derived<TableSpec[]>([
+		...(parseResult?.parsing_table && Object.keys(parseResult.parsing_table).length > 0
+			? [{ kind: 'll1' as const, label: 'LL(1) — Parsing Table M', table: parseResult.parsing_table }]
+			: []),
+		...(lr0Result?.action_table
+			? [{ kind: 'lr' as const, label: 'LR(0) — ACTION / GOTO Table', action_table: lr0Result.action_table, goto_table: lr0Result.goto_table ?? {}, terminals: lr0Result.terminals ?? [], non_terminals: lr0Result.non_terminals ?? [], stateCount: lr0Result.automaton?.states.length ?? 0 }]
+			: []),
+		...(slr1Result?.action_table
+			? [{ kind: 'lr' as const, label: 'SLR(1) — ACTION / GOTO Table', action_table: slr1Result.action_table, goto_table: slr1Result.goto_table ?? {}, terminals: slr1Result.terminals ?? [], non_terminals: slr1Result.non_terminals ?? [], stateCount: slr1Result.automaton?.states.length ?? 0 }]
+			: []),
+		...(lr1Result?.action_table
+			? [{ kind: 'lr' as const, label: 'LR(1) — ACTION / GOTO Table', action_table: lr1Result.action_table, goto_table: lr1Result.goto_table ?? {}, terminals: lr1Result.terminals ?? [], non_terminals: lr1Result.non_terminals ?? [], stateCount: lr1Result.automaton?.states.length ?? 0 }]
+			: []),
+		...(lalr1Result?.action_table
+			? [{ kind: 'lr' as const, label: 'LALR(1) — ACTION / GOTO Table', action_table: lalr1Result.action_table, goto_table: lalr1Result.goto_table ?? {}, terminals: lalr1Result.terminals ?? [], non_terminals: lalr1Result.non_terminals ?? [], stateCount: lalr1Result.automaton?.states.length ?? 0 }]
+			: []),
+	]);
+
+	let downloadingAll = $state(false);
+
+	async function downloadAllTables() {
+		if (availableTables.length === 0) return;
+		downloadingAll = true;
+		try {
+			await exportTablesPDF(availableTables, 'all-parser-tables.pdf');
+		} finally {
+			downloadingAll = false;
+		}
+	}
+
+	// ─── Shared parse tree (same for all parsers on the same grammar+input) ──
+	const sharedParseTreeDot = $derived(
+		rdResult?.parse_tree_dot ??
+		parseResult?.parse_tree_dot ??
+		lr0Result?.parse_tree_dot ??
+		slr1Result?.parse_tree_dot ??
+		lr1Result?.parse_tree_dot ??
+		lalr1Result?.parse_tree_dot ??
+		null
+	);
+	const sharedAstDot = $derived(
+		rdResult?.ast_dot ??
+		parseResult?.ast_dot ??
+		lr0Result?.ast_dot ??
+		slr1Result?.ast_dot ??
+		lr1Result?.ast_dot ??
+		lalr1Result?.ast_dot ??
+		null
+	);
 </script>
 
 <svelte:head>
-	<title>Ultimate Parser | LL(1) & LR(0) Analysis</title>
+	<title>Ultimate Parser | LL(1) & LR Analysis</title>
 </svelte:head>
 
-<main class="min-h-screen bg-[#0f172a] p-6 lg:p-12 relative overflow-hidden">
+<main class="min-h-screen bg-base p-6 lg:p-12 relative overflow-hidden transition-colors duration-200">
 	<!-- Background Effects -->
 	<div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-amber-400/5 rounded-full blur-[120px] -z-10"></div>
 	<div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] -z-10"></div>
 
 	<div class="mx-auto max-w-6xl space-y-12">
-		<!-- Header Section -->
+
+		<!-- ─── Header ─────────────────────────────────────────────────── -->
 		<header class="animate-fade-in flex flex-col md:flex-row md:justify-between md:items-end gap-6">
 			<div>
 				<div class="flex items-center gap-4 mb-2">
 					<div class="h-12 w-12 rounded-xl bg-amber-400 flex items-center justify-center shadow-[0_0_30px_rgba(251,191,36,0.3)]">
 						<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
 					</div>
-					<h1 class="text-4xl font-black tracking-tight text-white">
-						Ultimate <span class="text-amber-400">Parser</span>
+					<h1 class="text-4xl font-black tracking-tight text-base-1">
+						Ultimate <span class="dark:text-amber-400 text-amber-600">Parser</span>
 					</h1>
 				</div>
-				<p class="text-slate-400 max-w-2xl text-lg">
-					Analyze context-free grammars and visualize LL(1) & LR(0) parsing step-by-step.
-				</p>
+				<p class="text-base-3 max-w-2xl text-lg">{t('app.subtitle')}</p>
 			</div>
 
-			<div class="flex items-center gap-3 text-xs font-mono text-slate-500 bg-slate-900/50 px-5 py-2.5 rounded-full border border-slate-700/50 backdrop-blur-sm">
-				<span class="h-2 w-2 rounded-full {isLoading ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}"></span>
-				{isLoading ? 'Processing...' : 'Backend Active'}
+			<div class="flex items-center gap-2 flex-wrap">
+				<!-- Theme toggle -->
+				<button
+					onclick={() => theme.toggle()}
+					class="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold border border-base bg-card text-base-2 hover:text-amber-500 hover:border-amber-400/40 transition-all"
+					title="{theme.current === 'dark' ? t('ui.light') : t('ui.dark')} mode"
+				>
+					{#if theme.current === 'dark'}
+						<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+						{t('ui.light')}
+					{:else}
+						<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						{t('ui.dark')}
+					{/if}
+				</button>
+
+				<!-- Language toggle -->
+				<button
+					onclick={() => i18n.toggle()}
+					class="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold border border-base bg-card text-base-2 hover:text-amber-500 hover:border-amber-400/40 transition-all"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+					{t('ui.lang_switch')}
+				</button>
+
+				<!-- Loading indicator (only shown while processing) -->
+				{#if isLoading}
+					<div class="flex items-center gap-2 text-xs font-mono text-base-3 bg-card px-4 py-2 rounded-full border border-base backdrop-blur-sm">
+						<span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+						{t('app.status.busy')}
+					</div>
+				{/if}
 			</div>
 		</header>
 
-		<!-- Main Layout Grid -->
+		<!-- ─── Main Layout Grid ────────────────────────────────────────── -->
 		<div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
-			<!-- Left Column: Grammar Editor & Analysis -->
+
+			<!-- Left Column: Grammar Editor -->
 			<section class="lg:col-span-7 space-y-8 animate-fade-in" style="animation-delay: 0.1s">
-				<div class="glass-card overflow-hidden !p-0 border-slate-700/50 shadow-2xl">
-					<div class="flex items-center justify-between border-b border-slate-700/50 bg-slate-800/40 px-6 py-4">
+				<div class="glass-card overflow-hidden !p-0 shadow-2xl">
+					<div class="flex items-center justify-between border-b border-base bg-elevated px-6 py-4">
 						<div class="flex items-center gap-2">
 							<div class="flex gap-1.5 mr-4">
-								<div class="h-3 w-3 rounded-full bg-red-500/30"></div>
-								<div class="h-3 w-3 rounded-full bg-amber-500/30"></div>
-								<div class="h-3 w-3 rounded-full bg-green-500/30"></div>
+								<div class="h-3 w-3 rounded-full bg-red-500/40"></div>
+								<div class="h-3 w-3 rounded-full bg-amber-500/40"></div>
+								<div class="h-3 w-3 rounded-full bg-green-500/40"></div>
 							</div>
-							<span class="text-xs font-black uppercase tracking-widest text-slate-500">Grammar Definition</span>
+							<span class="text-xs font-black uppercase tracking-widest text-base-3">{t('grammar.title')}</span>
 						</div>
 					</div>
-
 					<textarea
 						bind:this={textarea}
 						bind:value={grammar}
 						spellcheck="false"
 						placeholder="S → A B..."
-						class="min-h-[300px] w-full resize-none bg-transparent p-8 font-mono text-lg text-slate-200 outline-none placeholder:text-slate-800 transition-all focus:bg-white/[0.02]"
+						class="min-h-[300px] w-full resize-none bg-transparent p-8 font-mono text-lg text-base-1 outline-none placeholder:text-base-4 transition-all focus:bg-white/[0.02]"
 					></textarea>
 				</div>
 
 				<div class="flex justify-end gap-4">
-					<button class="btn-ghost" onclick={() => (grammar = '')}>Reset</button>
+					<button class="btn-ghost" onclick={() => (grammar = '')}>{t('grammar.reset')}</button>
 					<button
 						class="btn-primary flex items-center gap-3 px-8"
 						onclick={analyzeGrammar}
@@ -286,10 +325,11 @@
 					>
 						{#if isAnalyzing}
 							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							{t('grammar.analyzing')}
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+							{t('grammar.analyze')}
 						{/if}
-						Analyze Structure
 					</button>
 				</div>
 
@@ -297,8 +337,8 @@
 				{#if grammarReady}
 					<div class="space-y-6 animate-fade-in">
 						<div class="flex items-center gap-3">
-							<h3 class="text-xs font-black uppercase tracking-widest text-slate-600">Parsed Productions</h3>
-							<div class="h-px grow bg-slate-800/50"></div>
+							<h3 class="text-xs font-black uppercase tracking-widest text-base-4">{t('grammar.productions_title')}</h3>
+							<div class="h-px grow bg-elevated"></div>
 						</div>
 						<GrammarViewer productions={analyzeResult!.productions || []} />
 					</div>
@@ -310,14 +350,14 @@
 				{#if grammarReady}
 					<div class="glass-card grid grid-cols-2 gap-6 border-amber-400/20 bg-amber-400/[0.02]">
 						<div class="space-y-1">
-							<p class="text-[10px] uppercase text-slate-500 font-black tracking-widest">Left Recursion</p>
-							<p class="text-2xl font-black {analyzeResult!.has_left_recursion ? 'text-red-400' : 'text-green-400'}">
-								{analyzeResult!.has_left_recursion ? 'DETECTED' : 'CLEAN'}
+							<p class="text-[10px] uppercase text-base-3 font-black tracking-widest">{t('analysis.left_rec_label')}</p>
+							<p class="text-2xl font-black {analyzeResult!.has_left_recursion ? 'text-red-500' : 'text-green-600 dark:text-green-400'}">
+								{analyzeResult!.has_left_recursion ? t('analysis.detected') : t('analysis.clean')}
 							</p>
 						</div>
 						<div class="space-y-1">
-							<p class="text-[10px] uppercase text-slate-500 font-black tracking-widest">Start Symbol</p>
-							<p class="text-2xl font-black text-white">{symbolLabel(analyzeResult!.start_symbol)}</p>
+							<p class="text-[10px] uppercase text-base-3 font-black tracking-widest">{t('grammar.start')}</p>
+							<p class="text-2xl font-black text-base-1">{symbolLabel(analyzeResult!.start_symbol)}</p>
 						</div>
 					</div>
 				{/if}
@@ -328,51 +368,137 @@
 
 				<VirtualKeyboard onInsert={handleInsert} />
 
-				<div class="glass-card border-slate-700/50 space-y-4">
-					<h3 class="text-xs font-black uppercase tracking-widest text-slate-400">Grammar Rules</h3>
+				<!-- Grammar hints -->
+				<div class="glass-card space-y-4">
+					<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('grammar.rules_title')}</h3>
 					<div class="space-y-4">
-						<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800">
-							<span class="text-amber-400 font-mono text-sm font-bold block mb-1">Terminals</span>
-							<p class="text-xs text-slate-500">Represented by lowercase letters or symbols like <code class="text-slate-300">+</code>, <code class="text-slate-300">-</code>, <code class="text-slate-300">*</code>, <code class="text-slate-300">/</code>, <code class="text-slate-300">^</code>.</p>
+						<div class="p-3 rounded-xl bg-elevated border border-base">
+							<span class="dark:text-amber-400 text-amber-600 font-mono text-sm font-bold block mb-1">{t('analysis.hint_t_label')}</span>
+							<p class="text-xs text-base-3">{t('analysis.hint_t')}</p>
 						</div>
-						<div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800">
-							<span class="text-amber-400 font-mono text-sm font-bold block mb-1">Non-Terminals</span>
-							<p class="text-xs text-slate-500">Represented by uppercase letters. Use <code class="text-slate-300">ϵ</code> for empty rules.</p>
+						<div class="p-3 rounded-xl bg-elevated border border-base">
+							<span class="dark:text-amber-400 text-amber-600 font-mono text-sm font-bold block mb-1">{t('analysis.hint_nt_label')}</span>
+							<p class="text-xs text-base-3">{t('analysis.hint_nt')}</p>
 						</div>
 					</div>
 				</div>
 			</aside>
 		</div>
 
-		<!-- ═══════════════════ Recursive Descent Simulation Section ═══════════════════ -->
+		<!-- ═══════════════════ PDF Export Section ═══════════════════ -->
+		{#if availableTables.length > 0}
+			<section class="animate-fade-in pt-8">
+				<div class="glass-card p-6 space-y-4">
+					<div class="flex items-center gap-3">
+						<div class="h-8 w-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+						</div>
+						<h3 class="text-sm font-bold uppercase tracking-widest text-base-2">{t('export.title')}</h3>
+						<div class="h-px grow bg-elevated"></div>
+						<span class="text-xs text-base-4 font-mono">
+							{availableTables.length > 1
+								? t('export.n_tables_p', { n: availableTables.length })
+								: t('export.n_tables', { n: availableTables.length })}
+						</span>
+					</div>
+
+					<div class="flex flex-wrap gap-3 items-start">
+						<!-- Option 1: All tables in one PDF -->
+						<div class="flex flex-col gap-1">
+							<button
+								onclick={downloadAllTables}
+								disabled={downloadingAll}
+								class="flex items-center gap-2 px-5 py-3 rounded-xl bg-violet-500 text-white font-bold text-sm hover:bg-violet-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+							>
+								{#if downloadingAll}
+									<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+									{t('export.generating')}
+								{:else}
+									<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+									{t('export.all')}
+								{/if}
+							</button>
+							<span class="text-[10px] text-base-4 px-1">{t('export.all_hint')}</span>
+						</div>
+
+						<!-- Divider -->
+						<div class="flex items-center self-stretch">
+							<div class="w-px h-full bg-elevated mx-2"></div>
+							<span class="text-xs text-base-4 font-bold uppercase tracking-widest mx-2">{t('export.individual')}</span>
+							<div class="w-px h-full bg-elevated mx-2"></div>
+						</div>
+
+						<!-- Option 2: Individual per-table buttons -->
+						<div class="flex flex-wrap gap-2">
+							{#each availableTables as spec}
+								{@const isLL1 = spec.kind === 'll1'}
+								<button
+									onclick={() => exportTablesPDF([spec], `${spec.label.split('—')[0].trim().replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`)}
+									class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all active:scale-95 {isLL1 ? 'dark:text-amber-400 text-amber-600 border-amber-400/30 hover:bg-amber-400/10' : 'dark:text-cyan-400 text-cyan-600 border-cyan-400/30 hover:bg-cyan-400/10'}"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+									{spec.label.split('—')[0].trim()}
+								</button>
+							{/each}
+						</div>
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<!-- ═══════════════════ Shared Parse Tree & AST ═══════════════════ -->
+		{#if sharedParseTreeDot}
+			<section class="animate-fade-in pt-8">
+				<div class="space-y-4">
+					<div class="flex items-center gap-3">
+						<div class="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+						</div>
+						<h3 class="text-sm font-bold uppercase tracking-widest text-base-2">{t('tree.title')}</h3>
+						<div class="h-px grow bg-elevated"></div>
+						<span class="text-[10px] text-base-4 font-mono uppercase tracking-widest">{t('tree.note')}</span>
+					</div>
+					<div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+						<GraphvizViewer dot={sharedParseTreeDot} title={t('tree.parse')} />
+						{#if sharedAstDot}
+							<GraphvizViewer dot={sharedAstDot} title={t('tree.ast')} />
+						{/if}
+					</div>
+				</div>
+			</section>
+		{/if}
+
+		<!-- ═══════════════════ Recursive Descent ═══════════════════ -->
 		{#if grammarReadyNoLeftRec}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">Recursive Descent <span class="text-teal-400">Simulation</span></h2>
-					<p class="text-slate-400">Top-down parser that tries each production alternative in order, backtracking on failure. Requires a non-left-recursive grammar.</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('rd.title')} <span class="dark:text-teal-400 text-teal-600">{t('rd.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('rd.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
 						<input
 							type="text"
 							bind:value={rdTestInput}
-							placeholder="Enter tokens separated by space (e.g., a b)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-400/50 transition-all font-mono"
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-teal-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
 					<button
-						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-teal-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-teal-400 active:scale-95 shadow-[0_0_15px_rgba(20,184,166,0.3)]"
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-teal-500 text-white font-bold rounded-lg transition-all duration-200 hover:bg-teal-400 active:scale-95 shadow-[0_0_15px_rgba(20,184,166,0.3)]"
 						onclick={simulateRD}
 						disabled={isParsingRd}
 					>
 						{#if isParsingRd}
-							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run Rec. Descent
+						{t('rd.run')}
 					</button>
 				</div>
 
@@ -380,43 +506,45 @@
 					{#if rdResult.status === 'success'}
 						<div class="space-y-6">
 							<div class="flex items-center gap-3">
-								<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Recursive Descent Execution</h3>
-								<div class="h-px grow bg-slate-800"></div>
+								<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('rd.execution')}</h3>
+								<div class="h-px grow bg-elevated"></div>
 							</div>
 							<StepPlayer snapshots={rdResult.snapshots || []} />
 						</div>
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">Recursive Descent Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{rdResult.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('rd.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{rdResult.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
 
-		<!-- LL(1) Simulation Section (New for Phase 3) -->
+		<!-- ═══════════════════ LL(1) Simulation ═══════════════════ -->
 		{#if grammarReadyNoLeftRec}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">LL(1) Parsing <span class="text-amber-400">Simulation</span></h2>
-					<p class="text-slate-400">Enter a sequence of tokens to simulate how the parser processes the input using the stack.</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('ll1.title')} <span class="dark:text-amber-400 text-amber-600">{t('ll1.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('ll1.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
-						<input 
-							type="text" 
-							bind:value={testInput} 
-							placeholder="Enter tokens separated by space (e.g., a b c)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-400/50 transition-all font-mono"
+						<input
+							type="text"
+							bind:value={testInput}
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-amber-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
-					<button 
+					<button
 						class="btn-primary min-w-[200px] h-[58px] flex items-center justify-center gap-2"
 						onclick={simulateLL1}
 						disabled={isParsing}
@@ -426,7 +554,7 @@
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run Simulation
+						{t('ll1.run')}
 					</button>
 				</div>
 
@@ -434,11 +562,10 @@
 					{#if parseResult.status === 'success'}
 						<div class="grid grid-cols-1 gap-12">
 							<TableViewer table={parseResult.parsing_table || {}} />
-							
 							<div class="space-y-6">
 								<div class="flex items-center gap-3">
-									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">Parser Execution</h3>
-									<div class="h-px grow bg-slate-800"></div>
+									<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('ll1.execution')}</h3>
+									<div class="h-px grow bg-elevated"></div>
 								</div>
 								<StepPlayer snapshots={parseResult.snapshots || []} />
 							</div>
@@ -446,45 +573,47 @@
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">Parsing Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{parseResult.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('ll1.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{parseResult.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
 
-		<!-- ═══════════════════ LR(0) Simulation Section ═══════════════════ -->
+		<!-- ═══════════════════ LR(0) Simulation ═══════════════════ -->
 		{#if grammarReady}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">LR(0) Parsing <span class="text-cyan-400">Simulation</span></h2>
-					<p class="text-slate-400">Build the canonical LR(0) automaton, ACTION/GOTO tables, and simulate bottom-up parsing step-by-step.</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('lr0.title')} <span class="dark:text-cyan-400 text-cyan-600">{t('lr0.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('lr0.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
-						<input 
-							type="text" 
-							bind:value={lr0TestInput} 
-							placeholder="Enter tokens separated by space (e.g., a b)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 transition-all font-mono"
+						<input
+							type="text"
+							bind:value={lr0TestInput}
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
-					<button 
-						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-cyan-400 active:scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+					<button
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-cyan-500 text-white font-bold rounded-lg transition-all duration-200 hover:bg-cyan-400 active:scale-95 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
 						onclick={simulateLR0}
 						disabled={isParsingLR0}
 					>
 						{#if isParsingLR0}
-							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run LR(0)
+						{t('lr0.run')}
 					</button>
 				</div>
 
@@ -492,21 +621,20 @@
 					{#if lr0Result.automaton}
 						<AutomatonViewer automaton={lr0Result.automaton} />
 					{/if}
-
 					{#if lr0Result.status === 'success'}
 						<div class="grid grid-cols-1 gap-12">
-							<LR0TableViewer 
-								action_table={lr0Result.action_table || {}} 
+							<LR0TableViewer
+								action_table={lr0Result.action_table || {}}
 								goto_table={lr0Result.goto_table || {}}
 								terminals={lr0Result.terminals || []}
 								non_terminals={lr0Result.non_terminals || []}
 								stateCount={lr0Result.automaton?.states.length || 0}
+								parserName="LR(0)"
 							/>
-							
 							<div class="space-y-6">
 								<div class="flex items-center gap-3">
-									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">LR(0) Parser Execution</h3>
-									<div class="h-px grow bg-slate-800"></div>
+									<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('lr0.execution')}</h3>
+									<div class="h-px grow bg-elevated"></div>
 								</div>
 								<LR0StepPlayer snapshots={lr0Result.snapshots || []} />
 							</div>
@@ -514,45 +642,47 @@
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">LR(0) Parsing Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{lr0Result.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('lr0.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{lr0Result.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
 
-		<!-- ═══════════════════ SLR(1) Simulation Section ═══════════════════ -->
+		<!-- ═══════════════════ SLR(1) Simulation ═══════════════════ -->
 		{#if grammarReady}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">SLR(1) Parsing <span class="text-emerald-400">Simulation</span></h2>
-					<p class="text-slate-400">SLR(1) extends LR(0) by using FOLLOW sets to restrict reduce actions, resolving more conflicts.</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('slr1.title')} <span class="dark:text-emerald-400 text-emerald-600">{t('slr1.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('slr1.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
 						<input
 							type="text"
 							bind:value={slr1TestInput}
-							placeholder="Enter tokens separated by space (e.g., a b)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all font-mono"
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
 					<button
-						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-emerald-400 active:scale-95 shadow-[0_0_15px_rgba(52,211,153,0.3)]"
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-white font-bold rounded-lg transition-all duration-200 hover:bg-emerald-400 active:scale-95 shadow-[0_0_15px_rgba(52,211,153,0.3)]"
 						onclick={simulateSLR1}
 						disabled={isParsingSlr1}
 					>
 						{#if isParsingSlr1}
-							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run SLR(1)
+						{t('slr1.run')}
 					</button>
 				</div>
 
@@ -560,7 +690,6 @@
 					{#if slr1Result.automaton}
 						<AutomatonViewer automaton={slr1Result.automaton} />
 					{/if}
-
 					{#if slr1Result.status === 'success'}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -569,11 +698,12 @@
 								terminals={slr1Result.terminals || []}
 								non_terminals={slr1Result.non_terminals || []}
 								stateCount={slr1Result.automaton?.states.length || 0}
+								parserName="SLR(1)"
 							/>
 							<div class="space-y-6">
 								<div class="flex items-center gap-3">
-									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">SLR(1) Parser Execution</h3>
-									<div class="h-px grow bg-slate-800"></div>
+									<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('slr1.execution')}</h3>
+									<div class="h-px grow bg-elevated"></div>
 								</div>
 								<LR0StepPlayer snapshots={slr1Result.snapshots || []} />
 							</div>
@@ -581,44 +711,47 @@
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">SLR(1) Parsing Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{slr1Result.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('slr1.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{slr1Result.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
-		<!-- ═══════════════════ LR(1) Simulation Section ═══════════════════ -->
+
+		<!-- ═══════════════════ LR(1) Simulation ═══════════════════ -->
 		{#if grammarReady}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">LR(1) Parsing <span class="text-violet-400">Simulation</span></h2>
-					<p class="text-slate-400">LR(1) uses per-item lookaheads in the canonical collection, resolving conflicts that SLR(1) and LR(0) cannot handle.</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('lr1.title')} <span class="dark:text-violet-400 text-violet-600">{t('lr1.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('lr1.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
 						<input
 							type="text"
 							bind:value={lr1TestInput}
-							placeholder="Enter tokens separated by space (e.g., a b)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all font-mono"
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
 					<button
-						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-violet-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-violet-400 active:scale-95 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-violet-500 text-white font-bold rounded-lg transition-all duration-200 hover:bg-violet-400 active:scale-95 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
 						onclick={simulateLR1}
 						disabled={isParsingLr1}
 					>
 						{#if isParsingLr1}
-							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run LR(1)
+						{t('lr1.run')}
 					</button>
 				</div>
 
@@ -626,7 +759,6 @@
 					{#if lr1Result.automaton}
 						<AutomatonViewer automaton={lr1Result.automaton} />
 					{/if}
-
 					{#if lr1Result.status === 'success'}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -635,11 +767,12 @@
 								terminals={lr1Result.terminals || []}
 								non_terminals={lr1Result.non_terminals || []}
 								stateCount={lr1Result.automaton?.states.length || 0}
+								parserName="LR(1)"
 							/>
 							<div class="space-y-6">
 								<div class="flex items-center gap-3">
-									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">LR(1) Parser Execution</h3>
-									<div class="h-px grow bg-slate-800"></div>
+									<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('lr1.execution')}</h3>
+									<div class="h-px grow bg-elevated"></div>
 								</div>
 								<LR0StepPlayer snapshots={lr1Result.snapshots || []} />
 							</div>
@@ -647,45 +780,47 @@
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">LR(1) Parsing Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{lr1Result.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('lr1.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{lr1Result.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
 
-		<!-- ═══════════════════ LALR(1) Simulation Section ═══════════════════ -->
+		<!-- ═══════════════════ LALR(1) Simulation ═══════════════════ -->
 		{#if grammarReady}
-			<section class="animate-fade-in space-y-8 pt-12 border-t border-slate-800">
+			<section class="animate-fade-in space-y-8 pt-12 border-t border-base">
 				<div class="max-w-3xl space-y-4">
-					<h2 class="text-3xl font-black text-white">LALR(1) Parsing <span class="text-rose-400">Simulation</span></h2>
-					<p class="text-slate-400">LALR(1) merges LR(1) states with identical cores, keeping per-item lookaheads. Same state count as LR(0), more precise than SLR(1).</p>
+					<h2 class="text-3xl font-black text-base-1">
+						{t('lalr1.title')} <span class="dark:text-rose-400 text-rose-600">{t('lalr1.label')}</span>
+					</h2>
+					<p class="text-base-3">{t('lalr1.desc')}</p>
 				</div>
 
-				<div class="glass-card flex flex-col md:flex-row gap-4 items-center border-slate-700/50 bg-slate-800/20">
+				<div class="glass-card flex flex-col md:flex-row gap-4 items-center">
 					<div class="relative w-full">
 						<input
 							type="text"
 							bind:value={lalr1TestInput}
-							placeholder="Enter tokens separated by space (e.g., a b)"
-							class="w-full bg-slate-900 border border-slate-700 rounded-xl px-6 py-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all font-mono"
+							placeholder={t('parser.input_ph')}
+							class="w-full bg-input-var border border-base rounded-xl px-6 py-4 text-base-1 focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all font-mono"
 						/>
-						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Input Stream</span>
+						<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-base-4 uppercase tracking-widest">{t('parser.input_label')}</span>
 					</div>
 					<button
-						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-rose-500 text-slate-900 font-bold rounded-lg transition-all duration-200 hover:bg-rose-400 active:scale-95 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+						class="min-w-[200px] h-[58px] flex items-center justify-center gap-2 px-4 py-2 bg-rose-500 text-white font-bold rounded-lg transition-all duration-200 hover:bg-rose-400 active:scale-95 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
 						onclick={simulateLALR1}
 						disabled={isParsingLalr1}
 					>
 						{#if isParsingLalr1}
-							<div class="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+							<div class="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
 						{:else}
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
 						{/if}
-						Run LALR(1)
+						{t('lalr1.run')}
 					</button>
 				</div>
 
@@ -693,7 +828,6 @@
 					{#if lalr1Result.automaton}
 						<AutomatonViewer automaton={lalr1Result.automaton} />
 					{/if}
-
 					{#if lalr1Result.status === 'success'}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -702,11 +836,12 @@
 								terminals={lalr1Result.terminals || []}
 								non_terminals={lalr1Result.non_terminals || []}
 								stateCount={lalr1Result.automaton?.states.length || 0}
+								parserName="LALR(1)"
 							/>
 							<div class="space-y-6">
 								<div class="flex items-center gap-3">
-									<h3 class="text-xs font-black uppercase tracking-widest text-slate-500">LALR(1) Parser Execution</h3>
-									<div class="h-px grow bg-slate-800"></div>
+									<h3 class="text-xs font-black uppercase tracking-widest text-base-3">{t('lalr1.execution')}</h3>
+									<div class="h-px grow bg-elevated"></div>
 								</div>
 								<LR0StepPlayer snapshots={lalr1Result.snapshots || []} />
 							</div>
@@ -714,15 +849,16 @@
 					{:else}
 						<div class="glass-card border-red-500/20 bg-red-500/5 p-8 text-center space-y-3">
 							<div class="h-12 w-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
 							</div>
-							<h3 class="text-lg font-bold text-red-400 uppercase tracking-widest">LALR(1) Parsing Failed</h3>
-							<p class="text-slate-400 font-mono text-sm max-w-xl mx-auto">{lalr1Result.message}</p>
+							<h3 class="text-lg font-bold text-red-500 uppercase tracking-widest">{t('lalr1.failed')}</h3>
+							<p class="text-base-3 font-mono text-sm max-w-xl mx-auto">{lalr1Result.message}</p>
 						</div>
 					{/if}
 				{/if}
 			</section>
 		{/if}
+
 	</div>
 
 	<!-- Toast Notifications -->
@@ -730,8 +866,8 @@
 		<div
 			class="fixed bottom-8 right-8 z-50 flex items-center gap-4 px-6 py-4 rounded-2xl shadow-2xl border backdrop-blur-xl animate-fade-in
 			{toast.type === 'success'
-				? 'bg-slate-900/90 border-green-500/30 text-green-400'
-				: 'bg-slate-900/90 border-red-500/30 text-red-400'}"
+				? 'bg-[var(--bg-card-solid)] border-green-500/40 dark:text-green-400 text-green-700'
+				: 'bg-[var(--bg-card-solid)] border-red-500/40 dark:text-red-400 text-red-700'}"
 		>
 			<div class="h-2 w-2 rounded-full {toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} animate-pulse"></div>
 			<span class="font-bold text-xs tracking-widest uppercase">{toast.msg}</span>
