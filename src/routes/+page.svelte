@@ -5,9 +5,10 @@
 	import StepPlayer from "$lib/components/StepPlayer.svelte";
 	import LR0TableViewer from "$lib/components/LR0TableViewer.svelte";
 	import LR0StepPlayer from "$lib/components/LR0StepPlayer.svelte";
-	import AutomatonViewer from "$lib/components/AutomatonViewer.svelte";
+
 	import AiAssistPanel from "$lib/components/AiAssistPanel.svelte";
 	import GraphvizViewer from "$lib/components/GraphvizViewer.svelte";
+	import FirstFollowSets from "$lib/components/FirstFollowSets.svelte";
 	import { ApiService } from "$lib/services/api";
 	import { exportTablesPDF } from "$lib/utils/pdf";
 	import type { TableSpec } from "$lib/utils/pdf";
@@ -253,6 +254,16 @@
 	// ─── PDF export ────────────────────────────────────────────────────
 
 	const availableTables = $derived<TableSpec[]>([
+		...(analyzeResult?.first_sets && analyzeResult?.follow_sets
+			? [
+					{
+						kind: "first-follow" as const,
+						label: "FIRST & FOLLOW Sets",
+						first_sets: analyzeResult.first_sets,
+						follow_sets: analyzeResult.follow_sets,
+					},
+				]
+			: []),
 		...(parseResult?.parsing_table &&
 		Object.keys(parseResult.parsing_table).length > 0
 			? [
@@ -1189,9 +1200,6 @@
 				</div>
 
 				{#if lr0Result}
-					{#if lr0Result.automaton}
-						<AutomatonViewer automaton={lr0Result.automaton} />
-					{/if}
 					{#if lr0Result.status === "success"}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -1214,6 +1222,7 @@
 								</div>
 								<LR0StepPlayer
 									snapshots={lr0Result.snapshots || []}
+									automaton={lr0Result.automaton}
 								/>
 							</div>
 						</div>
@@ -1327,9 +1336,6 @@
 				</div>
 
 				{#if slr1Result}
-					{#if slr1Result.automaton}
-						<AutomatonViewer automaton={slr1Result.automaton} />
-					{/if}
 					{#if slr1Result.status === "success"}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -1352,6 +1358,7 @@
 								</div>
 								<LR0StepPlayer
 									snapshots={slr1Result.snapshots || []}
+									automaton={slr1Result.automaton}
 								/>
 							</div>
 						</div>
@@ -1465,9 +1472,6 @@
 				</div>
 
 				{#if lr1Result}
-					{#if lr1Result.automaton}
-						<AutomatonViewer automaton={lr1Result.automaton} />
-					{/if}
 					{#if lr1Result.status === "success"}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -1490,6 +1494,7 @@
 								</div>
 								<LR0StepPlayer
 									snapshots={lr1Result.snapshots || []}
+									automaton={lr1Result.automaton}
 								/>
 							</div>
 						</div>
@@ -1603,9 +1608,6 @@
 				</div>
 
 				{#if lalr1Result}
-					{#if lalr1Result.automaton}
-						<AutomatonViewer automaton={lalr1Result.automaton} />
-					{/if}
 					{#if lalr1Result.status === "success"}
 						<div class="grid grid-cols-1 gap-12">
 							<LR0TableViewer
@@ -1628,6 +1630,7 @@
 								</div>
 								<LR0StepPlayer
 									snapshots={lalr1Result.snapshots || []}
+									automaton={lalr1Result.automaton}
 								/>
 							</div>
 						</div>
@@ -1697,6 +1700,14 @@
 				>{toast.msg}</span
 			>
 		</div>
+	{/if}
+
+	<!-- Floating First & Follow Sets Panel -->
+	{#if analyzeResult?.first_sets && analyzeResult?.follow_sets}
+		<FirstFollowSets
+			firstSets={analyzeResult.first_sets}
+			followSets={analyzeResult.follow_sets}
+		/>
 	{/if}
 </main>
 

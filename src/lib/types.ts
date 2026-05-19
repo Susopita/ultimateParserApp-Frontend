@@ -36,6 +36,8 @@ export interface AnalyzeResponse {
   start_symbol?: Symbol;
   production_count?: number;
   productions?: Production[];
+  first_sets?: Record<string, string[]>;
+  follow_sets?: Record<string, string[]>;
 }
 
 export interface ParseRequest {

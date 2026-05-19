@@ -19,7 +19,14 @@ export type LRTableSpec = {
   stateCount: number;
 };
 
-export type TableSpec = LL1TableSpec | LRTableSpec;
+export type FirstFollowSpec = {
+  kind: 'first-follow';
+  label: string;
+  first_sets: Record<string, string[]>;
+  follow_sets: Record<string, string[]>;
+};
+
+export type TableSpec = LL1TableSpec | LRTableSpec | FirstFollowSpec;
 
 type RGB = [number, number, number];
 
@@ -67,6 +74,17 @@ function lrRows(spec: LRTableSpec) {
     ...non_terminals.map((nt) => goto_table[sid]?.[nt] || '—'),
   ]);
 
+  return { head, body };
+}
+
+function firstFollowRows(spec: FirstFollowSpec) {
+  const nts = Object.keys(spec.first_sets).sort();
+  const head = [['Non-Terminal', 'First Set', 'Follow Set']];
+  const body = nts.map((nt) => [
+    nt,
+    spec.first_sets[nt]?.join(', ') || '∅',
+    spec.follow_sets[nt]?.join(', ') || '∅',
+  ]);
   return { head, body };
 }
 
@@ -128,6 +146,21 @@ export async function exportTablesPDF(specs: TableSpec[], filename: string) {
           if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '—') {
             data.cell.styles.textColor = MUTED;
           }
+        },
+      });
+    } else if (spec.kind === 'first-follow') {
+      const { head, body } = firstFollowRows(spec);
+      autoTable(doc, {
+        head,
+        body,
+        startY: 24,
+        styles: { font: 'courier', fontSize: 10, cellPadding: 3, lineColor: LINE, lineWidth: 0.2 },
+        headStyles: { fillColor: DARK2, textColor: WHITE, fontStyle: 'bold', halign: 'center' as const },
+        alternateRowStyles: { fillColor: ALT_ROW },
+        columnStyles: {
+          0: { fontStyle: 'bold', fillColor: DARK2, textColor: LIGHT, halign: 'center' as const },
+          1: { textColor: CYAN, halign: 'center' as const },
+          2: { textColor: AMBER, halign: 'center' as const },
         },
       });
     } else {

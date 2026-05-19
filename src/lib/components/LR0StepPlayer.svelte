@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { LR0ParseSnapshot } from '$lib/types';
+	import type { LR0ParseSnapshot, LR0Automaton } from '$lib/types';
 	import { i18n } from '$lib/stores/i18n.svelte';
+	import AutomatonViewer from './AutomatonViewer.svelte';
+	
 	const t = (key: string, vars?: Record<string, string | number>) => i18n.t(key, vars);
 
-	let { snapshots = [] } = $props<{ snapshots: LR0ParseSnapshot[] }>();
-
+	let { snapshots = [], automaton } = $props<{ snapshots: LR0ParseSnapshot[], automaton?: LR0Automaton }>();
 	let currentIndex = $state(0);
 	let isPlaying = $state(false);
 	let interval: ReturnType<typeof setInterval>;
@@ -12,6 +13,7 @@
 	$effect(() => () => clearInterval(interval));
 
 	const current = $derived(snapshots[currentIndex] || null);
+	const activeStateId = $derived(current && current.state_stack.length > 0 ? current.state_stack[current.state_stack.length - 1] : null);
 	const progress = $derived(snapshots.length > 0 ? ((currentIndex + 1) / snapshots.length) * 100 : 0);
 
 	function togglePlay() {
@@ -114,6 +116,12 @@
 	{#if current}
 		{@const kind = actionKind(current.action)}
 		{@const styles = actionStyles[kind]}
+
+		{#if automaton}
+			<div class="mb-6">
+				<AutomatonViewer {automaton} {activeStateId} />
+			</div>
+		{/if}
 
 		<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 			<!-- Stack Panel -->
