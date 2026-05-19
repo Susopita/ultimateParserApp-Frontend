@@ -13,7 +13,7 @@
 	}>();
 
 	let popupStateId = $state<number | null>(null);
-	const popupStateData = $derived(automaton?.states.find((s) => s.id === popupStateId));
+	const popupStateData = $derived(automaton?.states.find((s: any) => s.id === popupStateId));
 
 	const dotString = $derived.by(() => {
 		if (!automaton) return "";
@@ -43,7 +43,7 @@
 			const maxItems = 2;
 			let itemsStr = state.items
 				.slice(0, maxItems)
-				.map((item) => item.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"))
+				.map((item: string) => item.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"))
 				.join("\\n");
 			
 			if (state.items.length > maxItems) {

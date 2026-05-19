@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import VirtualKeyboard from "$lib/components/VirtualKeyboard.svelte";
+	import { appStorage } from "$lib/stores/storage.svelte";
 	import GrammarViewer from "$lib/components/GrammarViewer.svelte";
 	import TableViewer from "$lib/components/TableViewer.svelte";
 	import StepPlayer from "$lib/components/StepPlayer.svelte";
@@ -72,6 +74,26 @@
 			!analyzeResult.has_left_recursion,
 	);
 
+	onMount(() => {
+		if (appStorage.grammars.length > 0 && grammar === "S → A B\nA → a | ϵ\nB → b") {
+			grammar = appStorage.grammars[0].grammar;
+		}
+		if (appStorage.lastInputLl1) testInput = appStorage.lastInputLl1;
+		if (appStorage.lastInputLr0) lr0TestInput = appStorage.lastInputLr0;
+		if (appStorage.lastInputSlr1) slr1TestInput = appStorage.lastInputSlr1;
+		if (appStorage.lastInputLr1) lr1TestInput = appStorage.lastInputLr1;
+		if (appStorage.lastInputLalr1) lalr1TestInput = appStorage.lastInputLalr1;
+	});
+
+	$effect(() => {
+		appStorage.lastInputLl1 = testInput;
+		appStorage.lastInputLr0 = lr0TestInput;
+		appStorage.lastInputSlr1 = slr1TestInput;
+		appStorage.lastInputLr1 = lr1TestInput;
+		appStorage.lastInputLalr1 = lalr1TestInput;
+		appStorage.save();
+	});
+
 	function handleInsert(symbol: string) {
 		if (!textarea) return;
 		const start = textarea.selectionStart;
@@ -87,6 +109,7 @@
 	}
 
 	async function analyzeGrammar() {
+		appStorage.addGrammar(grammar);
 		isAnalyzing = true;
 		const data = await ApiService.analyze(grammar);
 		analyzeResult = data;
@@ -547,6 +570,26 @@
 								>{t("grammar.title")}</span
 							>
 						</div>
+						
+						{#if appStorage.grammars.length > 0}
+							<div class="relative group">
+								<button class="text-xs font-bold text-base-4 hover:text-amber-500 transition-colors uppercase tracking-widest flex items-center gap-2">
+									<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
+									Recientes
+								</button>
+								<div class="absolute right-0 top-full mt-2 w-72 bg-card border border-strong rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden flex flex-col">
+									<div class="px-4 py-2 bg-base border-b border-strong text-[9px] uppercase tracking-widest font-black text-base-4">Historial de Gramáticas</div>
+									<div class="max-h-60 overflow-y-auto">
+										{#each appStorage.grammars as g}
+											<button class="w-full text-left px-4 py-3 hover:bg-base/50 transition-colors border-b border-strong last:border-0" onclick={() => grammar = g.grammar}>
+												<div class="text-xs font-mono text-base-2 truncate opacity-80">{g.grammar.split('\n').join(' | ')}</div>
+												<div class="text-[9px] text-base-4 font-bold uppercase mt-1">{new Date(g.timestamp).toLocaleTimeString()}</div>
+											</button>
+										{/each}
+									</div>
+								</div>
+							</div>
+						{/if}
 					</div>
 					<textarea
 						bind:this={textarea}
